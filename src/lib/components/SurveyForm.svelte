@@ -95,7 +95,7 @@
       console.error('Phone lookup failed:', e);
     } finally {
       isLookingUp = false;
-      currentStep.set($isReturningPatient ? 16 : 2);
+      currentStep.set($isReturningPatient ? 8 : 2);
     }
   }
 
