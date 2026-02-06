@@ -1,5 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import SurveyForm from '$lib/components/SurveyForm.svelte';
+  import { isPresencial } from '$lib/stores/survey';
+
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('presencial')) {
+      isPresencial.set(true);
+    }
+  });
 </script>
 
 <svelte:head>

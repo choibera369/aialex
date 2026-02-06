@@ -11,40 +11,41 @@
 
 <div class="step-container">
   <h2 class="step-title">Nombre</h2>
-  <p class="step-description">Ingrese su nombre y apellido</p>
 
-  <div class="input-wrapper">
-    <label class="input-label" for="nombre">Nombre(s)</label>
-    <input
-      id="nombre"
-      type="text"
-      bind:value={$surveyData.nombre}
-      on:blur={() => (touchedNombre = true)}
-      placeholder="Ej: María"
-      class="text-input"
-      class:error={showNombreError}
-      maxlength="50"
-    />
-    {#if showNombreError}
-      <p class="error-message">{errorMessages.nombre}</p>
-    {/if}
-  </div>
+  <div class="input-row">
+    <div class="input-wrapper">
+      <label class="input-label" for="nombre">Nombre(s)</label>
+      <input
+        id="nombre"
+        type="text"
+        bind:value={$surveyData.nombre}
+        on:blur={() => (touchedNombre = true)}
+        placeholder="María"
+        class="text-input"
+        class:error={showNombreError}
+        maxlength="50"
+      />
+      {#if showNombreError}
+        <p class="error-message">{errorMessages.nombre}</p>
+      {/if}
+    </div>
 
-  <div class="input-wrapper">
-    <label class="input-label" for="apellido">Apellido(s)</label>
-    <input
-      id="apellido"
-      type="text"
-      bind:value={$surveyData.apellido}
-      on:blur={() => (touchedApellido = true)}
-      placeholder="Ej: García López"
-      class="text-input"
-      class:error={showApellidoError}
-      maxlength="50"
-    />
-    {#if showApellidoError}
-      <p class="error-message">{errorMessages.apellido}</p>
-    {/if}
+    <div class="input-wrapper">
+      <label class="input-label" for="apellido">Apellido(s)</label>
+      <input
+        id="apellido"
+        type="text"
+        bind:value={$surveyData.apellido}
+        on:blur={() => (touchedApellido = true)}
+        placeholder="García"
+        class="text-input"
+        class:error={showApellidoError}
+        maxlength="50"
+      />
+      {#if showApellidoError}
+        <p class="error-message">{errorMessages.apellido}</p>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -52,7 +53,7 @@
   .step-container {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     padding: 1rem;
   }
 
@@ -63,25 +64,27 @@
     margin: 0;
   }
 
-  .step-description {
-    color: #64748b;
-    margin: 0;
+  .input-row {
+    display: flex;
+    gap: 0.75rem;
   }
 
   .input-wrapper {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 
   .input-label {
-    font-size: 0.925rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: #475569;
   }
 
   .text-input {
-    padding: 1rem;
+    width: 100%;
+    padding: 0.875rem 0.75rem;
     font-size: 1.125rem;
     border: 2px solid #e2e8f0;
     border-radius: 0.75rem;
@@ -99,7 +102,7 @@
 
   .error-message {
     color: #ef4444;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     margin: 0;
   }
 </style>

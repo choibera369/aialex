@@ -1,7 +1,5 @@
 <script lang="ts">
   import { surveyData } from '$lib/stores/survey';
-  import VoiceInput from '../VoiceInput.svelte';
-
   const commonDevices = [
     { id: 'marcapasos', label: 'Marcapasos', icon: '❤️' },
     { id: 'stent', label: 'Stent', icon: '🩺' },
@@ -40,13 +38,7 @@
     $surveyData.dispositivosImplantados = allDevices.join(', ');
   }
 
-  function handleVoiceResult(text: string) {
-    if ($surveyData.dispositivosImplantados) {
-      $surveyData.dispositivosImplantados += ', ' + text;
-    } else {
-      $surveyData.dispositivosImplantados = text;
-    }
-  }
+
 </script>
 
 <div class="step-container">
@@ -79,7 +71,6 @@
       class="text-area"
       rows="2"
     ></textarea>
-    <VoiceInput onResult={handleVoiceResult} />
   </div>
 
   <p class="hint">Este campo es opcional. Puede dejarlo vacío si no tiene dispositivos implantados.</p>

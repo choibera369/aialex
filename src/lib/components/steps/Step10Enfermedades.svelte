@@ -1,7 +1,5 @@
 <script lang="ts">
   import { surveyData } from '$lib/stores/survey';
-  import VoiceInput from '../VoiceInput.svelte';
-
   const commonConditions = [
     'Diabetes',
     'Hipertensión',
@@ -36,13 +34,7 @@
     $surveyData.enfermedadesPreexistentes = allConditions.join(', ');
   }
 
-  function handleVoiceResult(text: string) {
-    if ($surveyData.enfermedadesPreexistentes) {
-      $surveyData.enfermedadesPreexistentes += ', ' + text;
-    } else {
-      $surveyData.enfermedadesPreexistentes = text;
-    }
-  }
+
 </script>
 
 <div class="step-container">
@@ -72,7 +64,6 @@
       class="text-area"
       rows="3"
     ></textarea>
-    <VoiceInput onResult={handleVoiceResult} />
   </div>
 
   <p class="hint">Este campo es opcional. Puede dejarlo vacío si no aplica.</p>
@@ -140,11 +131,13 @@
 
   .input-wrapper {
     display: flex;
-    flex-direction: column;
+    align-items: flex-end;
     gap: 0.5rem;
   }
 
   .text-area {
+    flex: 1;
+    min-width: 0;
     padding: 1rem;
     font-size: 1rem;
     border: 2px solid #e2e8f0;

@@ -60,6 +60,89 @@ export async function submitPatientData(data: PatientData) {
   return result;
 }
 
+// --- AI Analyses (Doctor page) ---
+
+export type AiAnalysis = {
+  id: string;
+  patient_id: string;
+  analysis_data: Record<string, any>;
+  nivel_urgencia: string;
+  created_at: string;
+};
+
+export type PatientWithAnalysis = {
+  patient: PatientData & { id: string; created_at: string };
+  analysis: AiAnalysis;
+  measurements: {
+    scale: Record<string, any> | null;
+    bp: Record<string, any> | null;
+  };
+};
+
+export async function fetchLatestAnalysis(): Promise<PatientWithAnalysis | null> {
+  // Get latest analysis
+  const { data: analysis, error: aErr } = await supabase
+    .from('ai_analyses')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (aErr || !analysis) {
+    console.error('Error fetching analysis:', aErr?.message);
+    return null;
+  }
+
+  // Get patient
+  const { data: patient, error: pErr } = await supabase
+    .from('patients')
+    .select('*')
+    .eq('id', analysis.patient_id)
+    .maybeSingle();
+
+  if (pErr || !patient) {
+    console.error('Error fetching patient:', pErr?.message);
+    return null;
+  }
+
+  // Get latest scale measurement
+  const { data: scale } = await supabase
+    .from('measurements')
+    .select('*')
+    .eq('patient_id', analysis.patient_id)
+    .eq('device_type', 'scale')
+    .order('measured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Get latest BP measurement
+  const { data: bp } = await supabase
+    .from('measurements')
+    .select('*')
+    .eq('patient_id', analysis.patient_id)
+    .eq('device_type', 'blood_pressure')
+    .order('measured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    patient,
+    analysis,
+    measurements: { scale: scale || null, bp: bp || null }
+  };
+}
+
+export function subscribeToAnalyses(callback: (payload: any) => void) {
+  return supabase
+    .channel('ai_analyses_realtime')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'ai_analyses' },
+      callback
+    )
+    .subscribe();
+}
+
 // --- Appointments ---
 
 export type BookedSlot = {

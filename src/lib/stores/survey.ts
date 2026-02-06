@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 
-export const TOTAL_STEPS = 18;
+export const TOTAL_STEPS = 15;
 
 export const errorMessages = {
   nombre: 'El nombre debe tener entre 2 y 50 caracteres',
@@ -65,6 +65,10 @@ export const isSubmitting = writable(false);
 export const submitError = writable<string | null>(null);
 export const submitSuccess = writable(false);
 export const isReturningPatient = writable(false);
+export const isPresencial = writable(false);
+
+// Cita step number
+const CITA_STEP = 13;
 
 // Validation functions
 export function validateNombre(value: string): boolean {
@@ -147,16 +151,13 @@ export function validateIntensidadDolor(value: number): boolean {
 // 5: Altura
 // 6: Tipo de Sangre
 // 7: Factor RH
-// 8: Horario del Dolor
-// 9: Inicio del Dolor
-// 10: Intensidad del Dolor
-// 11: Enfermedades
-// 12: Alergias
-// 13: Historial Familiar
-// 14: Medicamentos
-// 15: Dispositivos
-// 16: Cita (appointment calendar)
-// 17: Enviar
+// 8: Intensidad del Dolor
+// 9: Enfermedades
+// 10: Alergias
+// 11: Historial Familiar
+// 12: Medicamentos
+// 13: Cita (appointment calendar)
+// 14: Enviar
 
 // Validate specific step
 export function validateStep(step: number, data: SurveyData): boolean {
@@ -178,20 +179,15 @@ export function validateStep(step: number, data: SurveyData): boolean {
     case 7:
       return validateFactorRh(data.factorRh);
     case 8:
-      return validateHorarioDolor(data.horarioDolor);
-    case 9:
-      return validateInicioDolor(data.inicioDolor);
-    case 10:
       return validateIntensidadDolor(data.intensidadDolor);
+    case 9:
+    case 10:
     case 11:
     case 12:
-    case 13:
-    case 14:
-    case 15:
       return true; // Optional fields
-    case 16:
+    case 13:
       return validateCita(data.fechaCita, data.horaCita);
-    case 17:
+    case 14:
       return validateAllRequired(data);
     default:
       return false;
@@ -200,7 +196,7 @@ export function validateStep(step: number, data: SurveyData): boolean {
 
 // Validate all required fields (for submit)
 export function validateAllRequired(data: SurveyData): boolean {
-  return (
+  const base =
     validateNombre(data.nombre) &&
     validateApellido(data.apellido) &&
     validateTelefono(data.telefono) &&
@@ -209,11 +205,9 @@ export function validateAllRequired(data: SurveyData): boolean {
     validateAltura(data.altura) &&
     validateTipoSangre(data.tipoSangre) &&
     validateFactorRh(data.factorRh) &&
-    validateCita(data.fechaCita, data.horaCita) &&
-    validateHorarioDolor(data.horarioDolor) &&
-    validateInicioDolor(data.inicioDolor) &&
-    validateIntensidadDolor(data.intensidadDolor)
-  );
+    validateIntensidadDolor(data.intensidadDolor);
+  if (get(isPresencial)) return base;
+  return base && validateCita(data.fechaCita, data.horaCita);
 }
 
 // Derived store for current step validity
@@ -227,14 +221,18 @@ export function nextStep() {
   const step = get(currentStep);
   const data = get(surveyData);
   if (validateStep(step, data) && step < TOTAL_STEPS - 1) {
-    currentStep.set(step + 1);
+    let next = step + 1;
+    if (next === CITA_STEP && get(isPresencial)) next++;
+    currentStep.set(next);
   }
 }
 
 export function prevStep() {
   const step = get(currentStep);
   if (step > 0) {
-    currentStep.set(step - 1);
+    let prev = step - 1;
+    if (prev === CITA_STEP && get(isPresencial)) prev--;
+    currentStep.set(prev);
   }
 }
 

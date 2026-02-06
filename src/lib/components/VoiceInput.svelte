@@ -1,29 +1,55 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { transcribeAudio } from '$lib/supabase';
+
   export let onResult: (text: string) => void;
 
+  // State
   let isListening = false;
-  let isSupported = false;
+  let isProcessing = false;
   let errorMessage = '';
 
-  // Check for browser support
-  if (typeof window !== 'undefined') {
-    isSupported =
-      'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+  // SpeechRecognition (Chrome, Safari, Edge)
+  let recognition: any = null;
+  let hasSpeechAPI = false;
+
+  // MediaRecorder fallback (Firefox, etc.)
+  let mediaRecorder: MediaRecorder | null = null;
+  let audioChunks: Blob[] = [];
+  let mediaStream: MediaStream | null = null;
+
+  // Detect mode on first click (avoids SSR issues)
+  let modeDetected = false;
+
+  function detectMode() {
+    if (modeDetected) return;
+    const w = window as any;
+    hasSpeechAPI = !!(w.SpeechRecognition || w.webkitSpeechRecognition);
+    modeDetected = true;
   }
 
-  function startListening() {
-    if (!isSupported) {
-      errorMessage = 'Su navegador no soporta reconocimiento de voz';
-      return;
-    }
+  function toggleListening() {
+    detectMode();
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    if (isProcessing) return;
+
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }
+
+  // ── SpeechRecognition mode ──
+
+  function startSpeechRecognition() {
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    recognition = new SR();
 
     recognition.lang = 'es-MX';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
 
     recognition.onstart = () => {
       isListening = true;
@@ -31,16 +57,22 @@
     };
 
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      onResult(transcript);
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      if (finalTranscript) {
+        onResult(finalTranscript);
+      }
     };
 
     recognition.onerror = (event: any) => {
+      if (event.error === 'no-speech') return;
       isListening = false;
+      recognition = null;
       switch (event.error) {
-        case 'no-speech':
-          errorMessage = 'No se detectó voz. Intente de nuevo.';
-          break;
         case 'audio-capture':
           errorMessage = 'No se encontró micrófono.';
           break;
@@ -53,7 +85,14 @@
     };
 
     recognition.onend = () => {
-      isListening = false;
+      if (isListening && recognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          isListening = false;
+          recognition = null;
+        }
+      }
     };
 
     try {
@@ -62,21 +101,131 @@
       errorMessage = 'Error al iniciar el reconocimiento de voz.';
     }
   }
+
+  function stopSpeechRecognition() {
+    isListening = false;
+    if (recognition) {
+      recognition.onend = null;
+      recognition.stop();
+      recognition = null;
+    }
+  }
+
+  // ── MediaRecorder fallback mode ──
+
+  async function startMediaRecorder() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+
+      mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm'
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        releaseMediaStream();
+        if (audioChunks.length === 0) return;
+
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        audioChunks = [];
+
+        isProcessing = true;
+        errorMessage = '';
+
+        try {
+          const text = await transcribeAudio(audioBlob);
+          if (text) {
+            onResult(text);
+          }
+        } catch (e: any) {
+          errorMessage = e.message || 'Error de transcripción.';
+        } finally {
+          isProcessing = false;
+        }
+      };
+
+      mediaRecorder.start(); // single chunk for clean audio
+      isListening = true;
+      errorMessage = '';
+    } catch (e: any) {
+      releaseMediaStream();
+      if (e.name === 'NotAllowedError') {
+        errorMessage = 'Permiso de micrófono denegado.';
+      } else {
+        errorMessage = 'No se encontró micrófono.';
+      }
+    }
+  }
+
+  function stopMediaRecorder() {
+    isListening = false;
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    mediaRecorder = null;
+  }
+
+  function releaseMediaStream() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+  }
+
+  // ── Unified API ──
+
+  function startListening() {
+    if (hasSpeechAPI) {
+      startSpeechRecognition();
+    } else {
+      startMediaRecorder();
+    }
+  }
+
+  function stopListening() {
+    if (hasSpeechAPI) {
+      stopSpeechRecognition();
+    } else {
+      stopMediaRecorder();
+    }
+  }
+
+  onDestroy(() => {
+    stopSpeechRecognition();
+    stopMediaRecorder();
+    releaseMediaStream();
+  });
 </script>
 
-{#if isSupported}
-  <div class="voice-input">
-    <button
-      type="button"
-      class="voice-button"
-      class:listening={isListening}
-      on:click={startListening}
-      disabled={isListening}
-      title="Entrada por voz"
-    >
-      {#if isListening}
-        <span class="pulse"></span>
-      {/if}
+<div class="voice-input">
+  <button
+    type="button"
+    class="voice-button"
+    class:listening={isListening}
+    class:processing={isProcessing}
+    on:click={toggleListening}
+    disabled={isProcessing}
+    title={isProcessing
+      ? 'Procesando...'
+      : isListening
+        ? 'Detener grabación'
+        : 'Entrada por voz'}
+  >
+    {#if isListening}
+      <span class="pulse"></span>
+    {/if}
+
+    {#if isProcessing}
+      <span class="spinner"></span>
+    {:else}
       <svg
         class="mic-icon"
         viewBox="0 0 24 24"
@@ -89,23 +238,29 @@
         <line x1="12" y1="19" x2="12" y2="23" />
         <line x1="8" y1="23" x2="16" y2="23" />
       </svg>
-    </button>
-
-    {#if isListening}
-      <span class="listening-text">Escuchando...</span>
     {/if}
+  </button>
 
-    {#if errorMessage}
-      <span class="error-text">{errorMessage}</span>
-    {/if}
-  </div>
-{/if}
+  {#if isListening}
+    <span class="status-text listening-text">
+      {hasSpeechAPI ? 'Escuchando...' : 'Grabando...'}
+    </span>
+  {:else if isProcessing}
+    <span class="status-text processing-text">Procesando...</span>
+  {/if}
+
+  {#if errorMessage}
+    <span class="error-text">{errorMessage}</span>
+  {/if}
+</div>
 
 <style>
   .voice-input {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.25rem;
+    flex-shrink: 0;
   }
 
   .voice-button {
@@ -121,12 +276,18 @@
     color: #64748b;
     cursor: pointer;
     transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
-  .voice-button:hover:not(:disabled) {
+  .voice-button:active {
     border-color: #2563eb;
     color: #2563eb;
     background: #eff6ff;
+  }
+
+  .voice-button:disabled {
+    cursor: wait;
   }
 
   .voice-button.listening {
@@ -135,8 +296,10 @@
     background: #fef2f2;
   }
 
-  .voice-button:disabled {
-    cursor: default;
+  .voice-button.processing {
+    border-color: #f59e0b;
+    color: #f59e0b;
+    background: #fffbeb;
   }
 
   .pulse {
@@ -158,15 +321,39 @@
     }
   }
 
+  .spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #fde68a;
+    border-top-color: #f59e0b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .mic-icon {
     width: 1.25rem;
     height: 1.25rem;
   }
 
-  .listening-text {
-    font-size: 0.875rem;
-    color: #ef4444;
+  .status-text {
+    font-size: 0.7rem;
+    white-space: nowrap;
     animation: blink 1s ease-in-out infinite;
+  }
+
+  .listening-text {
+    color: #ef4444;
+  }
+
+  .processing-text {
+    color: #f59e0b;
+    animation: none;
   }
 
   @keyframes blink {
@@ -180,7 +367,9 @@
   }
 
   .error-text {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: #ef4444;
+    text-align: center;
+    max-width: 5rem;
   }
 </style>

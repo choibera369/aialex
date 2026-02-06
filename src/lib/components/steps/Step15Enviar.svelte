@@ -5,6 +5,7 @@
     isSubmitting,
     submitError,
     submitSuccess,
+    isPresencial,
     toDbFormat,
     toAppointmentFormat,
     resetSurvey
@@ -24,12 +25,16 @@
 
     try {
       const patient = await submitPatientData(formattedData);
-      const appointmentData = toAppointmentFormat($surveyData);
-      if (patient?.id) {
-        appointmentData.patient_id = patient.id;
+
+      if (!$isPresencial) {
+        const appointmentData = toAppointmentFormat($surveyData);
+        if (patient?.id) {
+          appointmentData.patient_id = patient.id;
+        }
+        await createAppointment(appointmentData);
+        appointmentConfirmed = `${$surveyData.fechaCita} a las ${$surveyData.horaCita}`;
       }
-      await createAppointment(appointmentData);
-      appointmentConfirmed = `${$surveyData.fechaCita} a las ${$surveyData.horaCita}`;
+
       submitSuccess.set(true);
     } catch (error) {
       submitError.set(error instanceof Error ? error.message : 'Error al enviar los datos');
@@ -98,17 +103,19 @@
         </div>
       </div>
 
-      <div class="summary-section">
-        <h3>Cita Programada</h3>
-        <div class="summary-row">
-          <span class="label">Fecha:</span>
-          <span class="value">{$surveyData.fechaCita || '-'}</span>
+      {#if !$isPresencial}
+        <div class="summary-section">
+          <h3>Cita Programada</h3>
+          <div class="summary-row">
+            <span class="label">Fecha:</span>
+            <span class="value">{$surveyData.fechaCita || '-'}</span>
+          </div>
+          <div class="summary-row">
+            <span class="label">Hora:</span>
+            <span class="value">{$surveyData.horaCita || '-'}</span>
+          </div>
         </div>
-        <div class="summary-row">
-          <span class="label">Hora:</span>
-          <span class="value">{$surveyData.horaCita || '-'}</span>
-        </div>
-      </div>
+      {/if}
 
       <div class="summary-section">
         <h3>Información del Dolor</h3>

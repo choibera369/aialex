@@ -1,14 +1,6 @@
 <script lang="ts">
   import { surveyData } from '$lib/stores/survey';
-  import VoiceInput from '../VoiceInput.svelte';
 
-  function handleVoiceResult(text: string) {
-    if ($surveyData.medicamentosActuales) {
-      $surveyData.medicamentosActuales += ', ' + text;
-    } else {
-      $surveyData.medicamentosActuales = text;
-    }
-  }
 </script>
 
 <div class="step-container">
@@ -27,7 +19,6 @@
       class="text-area"
       rows="4"
     ></textarea>
-    <VoiceInput onResult={handleVoiceResult} />
   </div>
 
   <div class="examples">
@@ -94,11 +85,13 @@
 
   .input-wrapper {
     display: flex;
-    flex-direction: column;
+    align-items: flex-end;
     gap: 0.5rem;
   }
 
   .text-area {
+    flex: 1;
+    min-width: 0;
     padding: 1rem;
     font-size: 1rem;
     border: 2px solid #e2e8f0;

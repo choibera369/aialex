@@ -10,11 +10,13 @@
     surveyData,
     validateStep,
     autoFillFromPatient,
-    isReturningPatient
+    isReturningPatient,
+    isPresencial
   } from '$lib/stores/survey';
   import { lookupPatientByPhone } from '$lib/supabase';
 
   let keyboardOffset = 0;
+  let keyboardOpen = false;
 
   onMount(() => {
     const vv = window.visualViewport;
@@ -22,6 +24,17 @@
 
     const update = () => {
       keyboardOffset = window.innerHeight - vv.height;
+      keyboardOpen = keyboardOffset > 100;
+
+      // When keyboard opens, scroll focused input into view
+      if (keyboardOpen) {
+        requestAnimationFrame(() => {
+          const el = document.activeElement;
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }
     };
 
     vv.addEventListener('resize', update);
@@ -36,16 +49,13 @@
   import Step5Altura from './steps/Step4Altura.svelte';
   import Step6TipoSangre from './steps/Step5TipoSangre.svelte';
   import Step7FactorRh from './steps/Step6FactorRh.svelte';
-  import Step8HorarioDolor from './steps/Step7HorarioDolor.svelte';
-  import Step9InicioDolor from './steps/Step8InicioDolor.svelte';
-  import Step10IntensidadDolor from './steps/Step9IntensidadDolor.svelte';
-  import Step11Enfermedades from './steps/Step10Enfermedades.svelte';
-  import Step12Alergias from './steps/Step11Alergias.svelte';
-  import Step13HistorialFamiliar from './steps/Step12HistorialFamiliar.svelte';
-  import Step14Medicamentos from './steps/Step13Medicamentos.svelte';
-  import Step15Dispositivos from './steps/Step14Dispositivos.svelte';
-  import Step16Cita from './steps/StepCita.svelte';
-  import Step17Enviar from './steps/Step15Enviar.svelte';
+  import Step8IntensidadDolor from './steps/Step9IntensidadDolor.svelte';
+  import Step9Enfermedades from './steps/Step10Enfermedades.svelte';
+  import Step10Alergias from './steps/Step11Alergias.svelte';
+  import Step11HistorialFamiliar from './steps/Step12HistorialFamiliar.svelte';
+  import Step12Medicamentos from './steps/Step13Medicamentos.svelte';
+  import Step13Cita from './steps/StepCita.svelte';
+  import Step14Enviar from './steps/Step15Enviar.svelte';
 
   const stepTitles = [
     'Bienvenida',
@@ -56,14 +66,11 @@
     'Altura',
     'Tipo de Sangre',
     'Factor RH',
-    'Horario del Dolor',
-    'Inicio del Dolor',
     'Intensidad del Dolor',
     'Enfermedades',
     'Alergias',
     'Historial Familiar',
     'Medicamentos',
-    'Dispositivos',
     'Cita',
     'Enviar'
   ];
@@ -99,7 +106,9 @@
     }
   }
 
-  $: progressPercent = ($currentStep / (TOTAL_STEPS - 1)) * 100;
+  $: totalVisible = $isPresencial ? TOTAL_STEPS - 2 : TOTAL_STEPS - 1;
+  $: displayStep = $isPresencial && $currentStep > 13 ? $currentStep - 1 : $currentStep;
+  $: progressPercent = (displayStep / totalVisible) * 100;
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key !== 'Enter') return;
@@ -121,7 +130,7 @@
     <!-- Progress Header -->
     <header class="progress-header">
       <div class="progress-info">
-        <span class="step-counter">{$currentStep} / {TOTAL_STEPS - 1}</span>
+        <span class="step-counter">{displayStep} / {totalVisible}</span>
         <span class="step-title">{stepTitles[$currentStep]}</span>
       </div>
       <div class="progress-bar">
@@ -131,7 +140,7 @@
   {/if}
 
   <!-- Step Content -->
-  <main class="step-content">
+  <main class="step-content" style={keyboardOpen ? `padding-bottom: ${keyboardOffset + 80}px` : ''}>
     {#if $currentStep === 0}
       <WelcomeScreen />
     {:else if $currentStep === 1}
@@ -149,25 +158,19 @@
     {:else if $currentStep === 7}
       <Step7FactorRh />
     {:else if $currentStep === 8}
-      <Step8HorarioDolor />
+      <Step8IntensidadDolor />
     {:else if $currentStep === 9}
-      <Step9InicioDolor />
+      <Step9Enfermedades />
     {:else if $currentStep === 10}
-      <Step10IntensidadDolor />
+      <Step10Alergias />
     {:else if $currentStep === 11}
-      <Step11Enfermedades />
+      <Step11HistorialFamiliar />
     {:else if $currentStep === 12}
-      <Step12Alergias />
+      <Step12Medicamentos />
     {:else if $currentStep === 13}
-      <Step13HistorialFamiliar />
+      <Step13Cita />
     {:else if $currentStep === 14}
-      <Step14Medicamentos />
-    {:else if $currentStep === 15}
-      <Step15Dispositivos />
-    {:else if $currentStep === 16}
-      <Step16Cita />
-    {:else if $currentStep === 17}
-      <Step17Enviar />
+      <Step14Enviar />
     {/if}
   </main>
 
